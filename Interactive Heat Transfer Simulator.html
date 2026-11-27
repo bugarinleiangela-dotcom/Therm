@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interactive Heat Transfer Simulator</title>
+<style>
+:root{--bg:#f6f5f1;--fg:#1d2230;--card:#fff;--mut:#667;--line:#d9d6cc;--acc:#d9531e;--cool:#2a6fdb;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171f;--fg:#e8e9ee;--card:#1d212c;--mut:#9aa0b2;--line:#30364a;--acc:#ff7a45;--cool:#5aa0ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171f;--fg:#e8e9ee;--card:#1d212c;--mut:#9aa0b2;--line:#30364a;--acc:#ff7a45;--cool:#5aa0ff;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.35rem;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 14px;font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:var(--bg)}
+label{display:block;font-size:.85rem;color:var(--mut);margin-top:10px}
+label b{color:var(--fg);float:right}
+input[type=range]{width:100%;accent-color:var(--acc)}
+select,.btn{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.btn{cursor:pointer;font-weight:600;margin:10px 6px 0 0}.btn.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+.ro{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ro div{background:var(--bg);border-radius:8px;padding:8px}.ro small{display:block;color:var(--mut);font-size:.72rem}.ro span{font-weight:700;font-variant-numeric:tabular-nums}
+.note{font-size:.82rem;color:var(--mut);margin:8px 0 0}
+.hide{display:none}
+.eq{font-family:ui-monospace,Menlo,monospace;font-size:.82rem}
+</style></head><body><main>
+<h1>Interactive Heat Transfer Simulator</h1>
+<p class="sub">Visualize and quantify sensible heat, latent heat, and gas behavior using the First Law of Thermodynamics and the Kinetic Theory of Gases.</p>
+<div class="tabs"><button id="t1" class="on">Sensible &amp; latent heat</button><button id="t2">Gas behavior</button></div>
+
+<section id="p1" class="grid">
+ <div class="card"><canvas id="c1" width="640" height="400"></canvas><div style="height:8px"></div><canvas id="ch" width="640" height="340"></canvas></div>
+ <div class="card">
+  <label>Mass of water <b id="vm">100 g</b><input id="m" type="range" min="10" max="500" step="10" value="100"></label>
+  <label>Starting ice temperature <b id="vt0">−20 °C</b><input id="t0" type="range" min="-40" max="-5" step="1" value="-20"></label>
+  <label>Heat added, Q <b id="vq">0 kJ</b><input id="q" type="range" min="0" max="1000" value="0"></label>
+  <label>Heater power <b id="vp">1000 W</b><input id="pw" type="range" min="200" max="5000" step="100" value="1000"></label>
+  <button class="btn p" id="play">▶ Heat</button><button class="btn" id="rst">Reset</button>
+  <div class="ro"><div><small>Temperature</small><span id="oT"></span></div><div><small>Stage</small><span id="oS"></span></div>
+  <div><small>Sensible heat so far</small><span id="oSe"></span></div><div><small>Latent heat so far</small><span id="oL"></span></div></div>
+  <p class="note eq">Sensible: Q = m·c·ΔT<br>Latent: Q = m·L (T stays constant)<br>c ice 2.09, water 4.186, steam 2.01 J/g·°C<br>L fusion 334, vaporization 2260 J/g</p>
+ </div>
+</section>
+
+<section id="p2" class="grid hide">
+ <div class="card"><canvas id="c2" width="640" height="400"></canvas></div>
+ <div class="card">
+  <label>Gas <select id="gas"><option value="4.003,3">Helium (monatomic)</option><option value="28.01,5" selected>Nitrogen (diatomic)</option><option value="32,5">Oxygen (diatomic)</option></select></label>
+  <label>Temperature, T <b id="vT">300 K</b><input id="T" type="range" min="100" max="800" value="300"></label>
+  <label>Volume, V <b id="vV">5.0 L</b><input id="V" type="range" min="1" max="10" step="0.1" value="5"></label>
+  <label>Amount, n <b id="vn">2 mol</b><input id="n" type="range" min="1" max="5" step="1" value="2"></label>
+  <div class="ro"><div><small>Pressure P = nRT/V</small><span id="gP"></span></div><div><small>v<sub>rms</sub> = √(3RT/M)</small><span id="gv"></span></div>
+  <div><small>Avg translational KE</small><span id="gk"></span></div><div><small>Internal energy U</small><span id="gU"></span></div></div>
+  <p class="note"><b>First Law tracker</b> (since reference): drag T or V and watch the balance.</p>
+  <div class="ro"><div><small>ΔU</small><span id="fU"></span></div><div><small>Work by gas W = ∫P dV</small><span id="fW"></span></div>
+  <div style="grid-column:span 2"><small>Heat added Q = ΔU + W</small><span id="fQ"></span></div></div>
+  <button class="btn" id="ref">Set reference</button>
+  <p class="note">Try: raise T at fixed V (all heat becomes ΔU); expand V at fixed T (heat becomes work).</p>
+ </div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id),R=8.314,kB=1.380649e-23;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const rnd=(a,b)=>a+Math.random()*(b-a);
+// tabs
+function tab(k){$('p1').classList.toggle('hide',k!=1);$('p2').classList.toggle('hide',k!=2);$('t1').classList.toggle('on',k==1);$('t2').classList.toggle('on',k==2)}
+$('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
+
+// ---------- Tab 1: heating curve ----------
+const C={ci:2.09,cw:4.186,cs:2.01,Lf:334,Lv:2260};
+let m=100,T0=-20,Q=0,playing=false;
+function segs(){return[
+ {n:'Ice warming',q:m*C.ci*(0-T0),a:T0,b:0,l:0},
+ {n:'Melting',q:m*C.Lf,a:0,b:0,l:1},
+ {n:'Water warming',q:m*C.cw*100,a:0,b:100,l:0},
+ {n:'Boiling',q:m*C.Lv,a:100,b:100,l:1},
+ {n:'Steam warming',q:m*C.cs*50,a:100,b:150,l:0}]}
+function state(q){let s=segs(),acc=0,sens=0,lat=0,melt=0,boil=0,T=T0,name=s[0].n;
+ for(let i=0;i<s.length;i++){const g=s[i],f=g.q?Math.min(1,Math.max(0,(q-acc)/g.q)):0;
+  if(q>=acc){T=g.a+(g.b-g.a)*f;name=g.n;if(g.l)lat+=g.q*f;else sens+=g.q*f;
+   if(i==1)melt=f;if(i==3)boil=f}
+  acc+=g.q}
+ if(q>=acc){name='Superheated steam';}
+ return{T,name,sens,lat,melt:q>=s[0].q+s[1].q?1:melt,boil,total:acc}}
+function total(){return segs().reduce((a,g)=>a+g.q,0)}
+function syncQ(){const t=total();$('q').value=Math.round(Q/t*1000)}
+// kitchen scene
+const c1=$('c1'),x1=c1.getContext('2d');
+const ln=(x,a,b,c,d)=>{x.beginPath();x.moveTo(a,b);x.lineTo(c,d);x.stroke()};
+const rr=(x,a,b,w,h,r)=>{x.beginPath();x.roundRect(a,b,w,h,r)};
+function kitchen(x,fl,knob,th,thLabel){
+ x.fillStyle='#e6d8bd';x.fillRect(0,0,640,400);
+ x.fillStyle='#f3eee2';x.fillRect(0,140,640,190);x.strokeStyle='#d8cfba';x.lineWidth=1;
+ for(let i=0;i<=640;i+=40)ln(x,i,140,i,330);for(let j=140;j<=330;j+=38)ln(x,0,j,640,j);
+ x.fillStyle='#bfe3f5';x.fillRect(36,30,110,80);x.strokeStyle='#8a6a4a';x.lineWidth=5;x.strokeRect(36,30,110,80);ln(x,91,30,91,110);ln(x,36,70,146,70);
+ x.fillStyle='#8a6a4a';x.fillRect(470,100,150,8);
+ ['#c4553a','#d9a441','#6c9a5b','#c4553a'].forEach((c,i)=>{x.fillStyle=c;rr(x,480+i*34,70,26,30,4);x.fill()});
+ x.fillStyle='#98a1ab';x.beginPath();x.moveTo(190,0);x.lineTo(450,0);x.lineTo(420,26);x.lineTo(220,26);x.fill();
+ x.fillStyle='#8a6a4a';x.fillRect(0,330,640,14);
+ x.fillStyle='#b98f62';x.fillRect(0,344,640,56);x.strokeStyle='#8f6c45';x.lineWidth=2;
+ for(let i=0;i<640;i+=107)x.strokeRect(i+2,350,100,44);
+ x.fillStyle='#c9ced4';x.fillRect(190,344,260,56);x.fillStyle='#2b2e33';rr(x,205,356,150,36,5);x.fill();
+ x.strokeStyle='#8c939b';x.lineWidth=3;ln(x,210,350,350,350);
+ for(let i=0;i<3;i++){const cx=385+i*22,cy=372;x.fillStyle='#3a3d44';x.beginPath();x.arc(cx,cy,9,0,6.28);x.fill();
+  const ang=(i==1?-2.3+knob*4.4:-2.3);x.strokeStyle='#fff';x.lineWidth=2;ln(x,cx,cy,cx+Math.cos(ang)*8,cy+Math.sin(ang)*8)}
+ x.fillStyle='#2b2e33';x.fillRect(190,330,260,14);
+ x.strokeStyle='#555a62';x.lineWidth=3;x.beginPath();x.ellipse(320,332,78,6,0,0,6.28);x.stroke();
+ // flame
+ if(fl>0.02){const t=performance.now()/90;for(let i=0;i<11;i++){const fx=250+i*14,h=(8+fl*26)*(0.7+0.3*Math.sin(t+i*1.7));
+  const g=x.createLinearGradient(0,330,0,330-h);g.addColorStop(0,'#3b7dff');g.addColorStop(.35,'#ffb23b');g.addColorStop(1,'rgba(255,90,30,0)');
+  x.fillStyle=g;x.beginPath();x.moveTo(fx-5,330);x.quadraticCurveTo(fx,330-h*1.2,fx+5,330);x.fill()}}
+ // thermometer
+ x.fillStyle='#fff';x.strokeStyle='#666';x.lineWidth=2;rr(x,540,170,22,130,11);x.fill();x.stroke();
+ x.fillStyle='#d9371e';const hh=Math.max(6,th*110);rr(x,546,290-hh,10,hh+4,5);x.fill();
+ x.beginPath();x.arc(551,296,11,0,6.28);x.fill();x.fillStyle='#333';x.font='bold 13px system-ui';x.textAlign='center';x.fillText(thLabel,551,320);x.textAlign='left'}
+function potShape(x,x0,x1,top,bot,handles){x.fillStyle='#a9b0b9';rr(x,x0,top,x1-x0,bot-top,8);x.fill();
+ if(handles){x.fillStyle='#2b2e33';rr(x,x0-20,top+22,22,12,4);x.fill();rr(x,x1-2,top+22,22,12,4);x.fill()}}
+// particles
+const N=60,P1=[];
+for(let i=0;i<N;i++){const cx=i%10,cy=Math.floor(i/10);
+ P1.push({hx:233+cx*17.5,hy:200+cy*16,x:233+cx*17.5,y:200+cy*16,a:rnd(0,6.28)})}
+function step1(st){const Tk=st.T+273.15;
+ const fl=playing?Math.min(1,+$('pw').value/5000+.15):0;
+ kitchen(x1,fl,fl?+$('pw').value/5000:0,Math.min(1,Math.max(0,(st.T+40)/190)),st.T.toFixed(0).replace('-','−')+'°C');
+ potShape(x1,215,425,170,300,true);
+ x1.fillStyle='#6d7680';x1.fillRect(222,176,196,118);
+ const lq=Math.max(0,st.melt-st.boil)*(1-0);
+ if(lq>0){x1.fillStyle='rgba(70,150,215,.55)';const h=Math.max(4,lq*90);x1.fillRect(222,294-h,196,h)}
+ for(let i=0;i<N;i++){const p=P1[i],f=i/N;let k=f<st.boil?2:(f<st.melt?1:0);
+  if(k==0){const am=0.4+Math.max(0,(st.T+40))*0.035;p.x=p.hx+rnd(-am,am);p.y=p.hy+rnd(-am,am)}
+  else{const sp=(k==1?0.09:0.2)*Math.sqrt(Tk);if(p.k!=k){p.k=k;p.a=rnd(0,6.28)}
+   p.a+=rnd(-.3,.3);p.x+=Math.cos(p.a)*sp;p.y+=Math.sin(p.a)*sp;
+   const top=k==1?222:50;
+   if(p.x<228){p.x=228;p.a=Math.PI-p.a}if(p.x>412){p.x=412;p.a=Math.PI-p.a}
+   if(p.y<top){p.y=top;p.a=-p.a}if(p.y>288){p.y=288;p.a=-p.a}}
+  if(k==0)p.k=0;
+  if(k==0){x1.fillStyle='#e8f4ff';x1.strokeStyle='#8cc3ee';x1.lineWidth=1.5;rr(x1,p.x-7,p.y-7,14,14,3);x1.fill();x1.stroke()}
+  else if(k==1){x1.fillStyle='#4fb3e0';x1.beginPath();x1.arc(p.x,p.y,5,0,6.28);x1.fill()}
+  else{const out=p.y<176;x1.fillStyle=out?'rgba(215,228,240,.75)':'#ff8a4c';x1.beginPath();x1.arc(p.x,p.y,out?7:5,0,6.28);x1.fill()}}
+ x1.strokeStyle='#8a929c';x1.lineWidth=5;ln(x1,218,172,422,172);
+ x1.fillStyle='#fff';x1.font='12px system-ui';x1.fillText('Ice cubes → water → steam',20,390)}
+// chart
+const ch=$('ch'),xc=ch.getContext('2d');
+function chart(st){const W=ch.width,H=ch.height,L=54,B=38,Tp=16,Rr=14,t=total(),ymin=Math.min(T0,0)-10,ymax=165,s=segs();
+ const X=q=>L+(W-L-Rr)*q/t,Y=T=>Tp+(H-Tp-B)*(1-(T-ymin)/(ymax-ymin));
+ const col=['#5aa0ff','#3aa6c8','#2f9e6e','#d9a441','#ff7a45'],nm=['Ice warms','Melting','Water warms','Boiling','Steam warms'];
+ xc.clearRect(0,0,W,H);xc.font='11px system-ui';
+ let a=0;s.forEach((g,i)=>{if(g.l){xc.globalAlpha=.14;xc.fillStyle=col[i];xc.fillRect(X(a),Tp,X(a+g.q)-X(a),H-Tp-B);xc.globalAlpha=1}a+=g.q});
+ xc.strokeStyle=css('--line');xc.fillStyle=css('--mut');xc.lineWidth=1;xc.textAlign='right';
+ [0,50,100,150].forEach(v=>{xc.beginPath();xc.moveTo(L,Y(v));xc.lineTo(W-Rr,Y(v));xc.stroke();xc.fillText(v+'°',L-6,Y(v)+4)});
+ xc.textAlign='center';for(let i=0;i<=5;i++){const q=t*i/5;xc.fillText((q/1000).toFixed(0),X(q),H-20)}
+ xc.fillText('Heat added, Q (kJ)',(L+W)/2,H-5);xc.save();xc.translate(12,(Tp+H-B)/2);xc.rotate(-Math.PI/2);xc.fillText('Temperature (°C)',0,0);xc.restore();
+ a=0;s.forEach((g,i)=>{xc.strokeStyle=col[i];xc.lineWidth=2;xc.globalAlpha=.35;xc.beginPath();xc.moveTo(X(a),Y(g.a));xc.lineTo(X(a+g.q),Y(g.b));xc.stroke();
+  const f=g.q?Math.min(1,Math.max(0,(Q-a)/g.q)):0;if(f>0){xc.globalAlpha=1;xc.lineWidth=4.5;xc.lineCap='round';xc.beginPath();xc.moveTo(X(a),Y(g.a));xc.lineTo(X(a+g.q*f),Y(g.a+(g.b-g.a)*f));xc.stroke()}
+  xc.globalAlpha=1;const w=X(a+g.q)-X(a);if(w>46){xc.fillStyle=col[i];xc.textAlign='center';const mx=X(a+g.q/2),my=g.l?(Y(g.a)-18):(Y((g.a+g.b)/2)-12);xc.fillText(nm[i],mx,my);xc.fillStyle=css('--mut');xc.fillText((g.q/1000).toFixed(1)+' kJ',mx,my+12)}
+  a+=g.q});
+ const px=X(Math.min(Q,t)),py=Y(st.T);xc.strokeStyle=css('--mut');xc.lineWidth=1;xc.setLineDash([4,4]);xc.beginPath();xc.moveTo(px,py);xc.lineTo(px,H-B);xc.moveTo(px,py);xc.lineTo(L,py);xc.stroke();xc.setLineDash([]);
+ xc.fillStyle=css('--card');xc.strokeStyle=css('--fg');xc.lineWidth=3;xc.beginPath();xc.arc(px,py,7,0,6.28);xc.fill();xc.stroke();
+ xc.fillStyle=css('--fg');xc.font='bold 12px system-ui';xc.textAlign=px>W-120?'right':'left';xc.fillText(st.T.toFixed(0).replace('-','−')+'°C',px+(px>W-120?-12:12),py+Math.min(18,0)+(py<40?18:-10));xc.textAlign='left'}
+function chartOld(st){const W=480,H=230,L=44,B=28,Tp=12,Rr=10,t=total(),ymin=Math.min(T0,0)-10,ymax=160;
+ const X=q=>L+(W-L-Rr)*q/t,Y=T=>Tp+(H-Tp-B)*(1-(T-ymin)/(ymax-ymin));
+ xc.clearRect(0,0,W,H);xc.strokeStyle=css('--line');xc.fillStyle=css('--mut');xc.font='11px system-ui';xc.lineWidth=1;
+ [0,50,100,150].forEach(v=>{xc.beginPath();xc.moveTo(L,Y(v));xc.lineTo(W-Rr,Y(v));xc.stroke();xc.fillText(v+'°',8,Y(v)+4)});
+ xc.fillText('Q (kJ) →',W-60,H-8);xc.fillText((t/1000).toFixed(0)+' kJ',W-52,Y(ymin)+14);
+ let a=0;xc.strokeStyle=css('--fg');xc.lineWidth=2;xc.beginPath();xc.moveTo(X(0),Y(T0));
+ segs().forEach(g=>{a+=g.q;xc.lineTo(X(a),Y(g.b))});xc.stroke();
+ xc.fillText('ice',X(0)+4,Y(T0)-6);xc.fillText('melting',X(segs()[0].q)+4,Y(0)-6);xc.fillText('boiling',X(segs()[0].q+segs()[1].q+segs()[2].q)+4,Y(100)-6);
+ xc.fillStyle=css('--acc');xc.beginPath();xc.arc(X(Math.min(Q,t)),Y(st.T),6,0,6.28);xc.fill()}
+function upd1(){m=+$('m').value;T0=+$('t0').value;
+ $('vm').textContent=m+' g';$('vt0').textContent=T0.replace?T0:(T0+' °C').replace('-','−');
+ $('vt0').textContent=(T0+' °C').replace('-','−');$('vp').textContent=$('pw').value+' W';
+ const st=state(Q);$('vq').textContent=(Q/1000).toFixed(1)+' kJ';
+ $('oT').textContent=st.T.toFixed(1).replace('-','−')+' °C';$('oS').textContent=st.name;
+ $('oSe').textContent=(st.sens/1000).toFixed(1)+' kJ';$('oL').textContent=(st.lat/1000).toFixed(1)+' kJ';return st}
+['m','t0'].forEach(i=>$(i).oninput=()=>{m=+$('m').value;T0=+$('t0').value;Q=Math.min(Q,total());syncQ()});
+$('q').oninput=()=>{Q=+$('q').value/1000*total()};
+$('pw').oninput=()=>{};
+$('play').onclick=()=>{playing=!playing;$('play').textContent=playing?'❚❚ Pause':'▶ Heat'};
+$('rst').onclick=()=>{Q=0;playing=false;$('play').textContent='▶ Heat';syncQ()};
+
+// ---------- Tab 2: gas ----------
+const c2=$('c2'),x2=c2.getContext('2d'),G=[];
+for(let i=0;i<75;i++)G.push({x:rnd(255,385),y:rnd(200,285),a:rnd(0,6.28),f:rnd(.6,1.4)});
+let ref={T:300,V:5,n:2},Wk=0,lastV=5;
+function gv(){const[M,f]=$('gas').value.split(',').map(Number);return{M,f,T:+$('T').value,V:+$('V').value,n:+$('n').value}}
+function resetRef(){const g=gv();ref={T:g.T,V:g.V,n:g.n,f:g.f};Wk=0;lastV=g.V}
+$('ref').onclick=resetRef;$('gas').onchange=resetRef;$('n').oninput=resetRef;
+function step2(){const g=gv(),P=g.n*R*g.T/g.V;
+ if(g.V!==lastV){Wk+=P*(g.V-lastV);lastV=g.V}
+ const fl=(g.T-100)/700,lid=320-(20+g.V*22);
+ kitchen(x2,fl*0.9+0.1,fl,fl,g.T+' K');
+ x2.fillStyle='#a9b0b9';x2.fillRect(236,60,8,244);x2.fillRect(396,60,8,244);x2.fillRect(236,296,168,8);
+ x2.fillStyle='#6d7680';x2.fillRect(244,lid,152,296-lid);
+ const sp=0.11*Math.sqrt(g.T/(g.M/28))*(g.M<10?1.8:1);
+ x2.fillStyle='#ff8a4c';x2.globalAlpha=.55+fl*.45;
+ for(let i=0;i<g.n*15;i++){const p=G[i];p.a+=rnd(-.02,.02);p.x+=Math.cos(p.a)*sp*p.f;p.y+=Math.sin(p.a)*sp*p.f;
+  if(p.x<252){p.x=252;p.a=Math.PI-p.a}if(p.x>388){p.x=388;p.a=Math.PI-p.a}
+  if(p.y<lid+6){p.y=lid+6;p.a=-p.a}if(p.y>288){p.y=288;p.a=-p.a}
+  x2.beginPath();x2.arc(p.x,p.y,4.5,0,6.28);x2.fill()}
+ x2.globalAlpha=1;x2.fillStyle='#4a5058';x2.fillRect(240,lid-8,160,10);
+ x2.fillStyle='#2b2e33';rr(x2,300,lid-30,40,22,4);x2.fill();x2.fillStyle='#fff';x2.font='11px system-ui';x2.fillText('weight',304,lid-14);
+ x2.fillStyle='#fff';x2.font='12px system-ui';x2.fillText('Sealed pot with a free-floating lid (piston)',20,390);
+ const vr=Math.sqrt(3*R*g.T/(g.M/1000)),U=g.f/2*g.n*R*g.T,dU=g.f/2*g.n*R*(g.T-ref.T);
+ const s=v=>v.toFixed(1).replace('-','−');
+ $('vT').textContent=g.T+' K';$('vV').textContent=g.V.toFixed(1)+' L';$('vn').textContent=g.n+' mol';
+ $('gP').textContent=P.toFixed(0)+' kPa';$('gv').textContent=vr.toFixed(0)+' m/s';
+ $('gk').textContent=(1.5*kB*g.T*1e21).toFixed(2)+' ×10⁻²¹ J';$('gU').textContent=(U/1000).toFixed(2)+' kJ';
+ $('fU').textContent=s(dU)+' J';$('fW').textContent=s(Wk)+' J';$('fQ').textContent=s(dU+Wk)+' J'}
+['T','V'].forEach(i=>$(i).oninput=()=>{});
+resetRef();
+
+// ---------- loop ----------
+let last=performance.now();
+function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+ if(playing){Q+=(+$('pw').value)*dt*20;const t=total();if(Q>=t){Q=t;playing=false;$('play').textContent='▶ Heat'}syncQ()}
+ if(!$('p1').classList.contains('hide')){const st=upd1();step1(st);chart(st)}else step2();
+ requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>
